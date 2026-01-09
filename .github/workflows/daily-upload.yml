@@ -1,0 +1,38 @@
+name: Daily LeetCode Upload
+
+on:
+  schedule:
+    # Runs every day at 9:00 AM UTC (adjust to your timezone)
+    # Format: minute hour day month day-of-week
+    - cron: '0 9 * * *'
+  
+  # Allows manual trigger from Actions tab
+  workflow_dispatch:
+
+jobs:
+  upload-solution:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Run upload script
+      run: |
+        python upload_solution.py
+    
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add .
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Daily LeetCode solution upload - $(date +'%Y-%m-%d')" && git push)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
