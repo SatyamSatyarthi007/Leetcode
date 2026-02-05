@@ -1,64 +1,59 @@
 import os
 import json
-import shutil
 from datetime import datetime
 from pathlib import Path
 
 class LeetCodeUploader:
     def __init__(self, solutions_dir='.', tracking_file='uploaded_solutions.json'):
-        # default to current working directory so script works from repo root
         self.solutions_dir = Path(solutions_dir)
         self.tracking_file = Path(tracking_file)
         self.uploaded = self.load_tracking()
     
     def load_tracking(self):
         """Load the tracking file to see what's been uploaded"""
-        if self.tracking_file.exists():
-            try:
-                with open(self.tracking_file, 'r', encoding='utf-8') as f:
-                    content = f.read().strip()
-                    if not content:
-                        print(f"Warning: tracking file {self.tracking_file} is empty; resetting.")
-                        return {'uploaded': [], 'last_upload_date': None}
-                    data = json.loads(content)
-                # validate structure
-                if not isinstance(data, dict) or 'uploaded' not in data:
-                    raise ValueError('tracking file has invalid structure')
-                return data
-            except (json.JSONDecodeError, ValueError) as e:
-                print(f"Warning: tracking file {self.tracking_file} is corrupted or invalid ({e}); resetting.")
-                # Try to restore from backup if it exists
-                backup_file = Path(str(self.tracking_file) + '.bak')
-                if backup_file.exists():
-                    try:
-                        with open(backup_file, 'r', encoding='utf-8') as f:
-                            backup_data = json.load(f)
-                        print(f"Restored from backup file: {backup_file}")
-                        return backup_data
-                    except:
-                        pass
-                return {'uploaded': [], 'last_upload_date': None}
-
-        return {'uploaded': [], 'last_upload_date': None}
+        # Initialize default structure
+        default_data = {'uploaded': [], 'last_upload_date': None}
+        
+        # If file doesn't exist, return default
+        if not self.tracking_file.exists():
+            return default_data
+        
+        # Try to read and parse the file
+        try:
+            with open(self.tracking_file, 'r', encoding='utf-8') as f:
+                file_content = f.read()
+                
+            # Check if file is empty
+            if not file_content or file_content.strip() == '':
+                print("Warning: Tracking file is empty. Initializing with default data.")
+                return default_data
+            
+            # Parse JSON
+            data = json.loads(file_content)
+            
+            # Validate structure
+            if not isinstance(data, dict) or 'uploaded' not in data:
+                print("Warning: Invalid tracking file structure. Resetting.")
+                return default_data
+            
+            return data
+            
+        except json.JSONDecodeError as e:
+            print(f"Warning: Failed to parse JSON ({e}). Resetting tracking file.")
+            return default_data
+        except Exception as e:
+            print(f"Warning: Error reading tracking file ({e}). Resetting.")
+            return default_data
     
     def save_tracking(self):
         """Save the tracking file"""
-        # Create backup before saving
-        if self.tracking_file.exists():
-            backup_file = Path(str(self.tracking_file) + '.bak')
-            shutil.copy2(self.tracking_file, backup_file)
-        
-        # Write to temporary file first, then rename (atomic operation)
-        temp_file = Path(str(self.tracking_file) + '.tmp')
         try:
-            with open(temp_file, 'w', encoding='utf-8') as f:
-                json.dump(self.uploaded, f, indent=2)
-            # Atomic rename
-            temp_file.replace(self.tracking_file)
+            with open(self.tracking_file, 'w', encoding='utf-8') as f:
+                json.dump(self.uploaded, f, indent=2, ensure_ascii=False)
+                f.write('\n')  # Add newline at end
         except Exception as e:
-            if temp_file.exists():
-                temp_file.unlink()
-            raise e
+            print(f"Error saving tracking file: {e}")
+            raise
     
     def get_all_solutions(self):
         """Get all solution folders"""
@@ -66,9 +61,12 @@ class LeetCodeUploader:
             print(f"Error: Directory {self.solutions_dir} not found!")
             return []
         
-        # ignore hidden dot-folders (e.g. .git) and any non-directory entries
-        folders = [f for f in self.solutions_dir.iterdir() if f.is_dir() and not f.name.startswith('.')]
-        folders.sort()  # Sort to maintain consistent order
+        # Get all directories that don't start with '.'
+        folders = [
+            f for f in self.solutions_dir.iterdir() 
+            if f.is_dir() and not f.name.startswith('.')
+        ]
+        folders.sort()
         return folders
     
     def get_next_solution(self):
@@ -101,7 +99,8 @@ class LeetCodeUploader:
         
         print(f"✅ Successfully uploaded: {next_solution.name}")
         total = len(self.get_all_solutions())
-        print(f"Progress: {len(self.uploaded['uploaded'])}/{total}")
+        uploaded_count = len(self.uploaded['uploaded'])
+        print(f"Progress: {uploaded_count}/{total}")
         
         return True
 
